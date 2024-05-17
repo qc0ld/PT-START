@@ -1,0 +1,3 @@
+psycopg2
+paramiko
+python-telegram-bot==13.7
