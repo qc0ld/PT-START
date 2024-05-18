@@ -1,0 +1,138 @@
+- name: Package installation
+  hosts: db_bot_host, db_repl_host
+  become: true
+  tasks:
+    - apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+          - libpq-dev
+        state: present
+
+- name: db_host configuration
+  hosts: db_bot_host
+  become: true
+  tasks:
+    - name: Setup environment
+      apt:
+        name:
+          - git
+          - python3-pip
+
+    - name: Setup repository
+      block:
+        - git:
+            repo: "https://github.com/qc0ld/PT-START"
+            dest: "/ansible/bot"
+            version: docker
+        - pip:
+            requirements: "/ansible/bot/bot/requirements.txt"
+
+    - name: Log directory setup
+      block:
+        - file:
+            path: "/ansible/bot/../bot"
+            state: directory
+        - service:
+            name: postgresql
+            state: restarted
+
+    - name: PostgreSQL configuration
+      block:
+        - blockinfile:
+            path: "/etc/postgresql/{{ hostvars[inventory_hostname]['PG_VERSION'] }}/main/postgresql.conf"
+            block: |
+              listen_addresses = '*'
+              port = {{ hostvars[inventory_hostname]['DB_PORT'] }}
+              max_wal_senders = 10
+              wal_level = replica
+              wal_log_hints = on
+              hot_standby = on
+              max_replication_slots = 10
+              hot_standby_feedback = on
+              log_replication_commands = on
+              log_destination = stderr
+              logging_collector = on
+              log_directory = '/var/log/postgresql/'
+              log_filename = 'postgresql.log'
+        - blockinfile:
+            path: "/etc/postgresql/{{ hostvars[inventory_hostname]['PG_VERSION'] }}/main/pg_hba.conf"
+            block: |
+              local all postgres peer
+              host replication all {{ hostvars[inventory_hostname]['ansible_host'] }}/24 scram-sha-256
+              host all all {{ hostvars[inventory_hostname]['ansible_host'] }}/32 trust
+
+    - name: init.sql setup
+      block:
+        - copy:
+            src: init.sql
+            dest: /tmp/init.sql
+        - replace:
+            path: /tmp/init.sql
+            regexp: "DB_DATABASE"
+            replace: "{{ hostvars[inventory_hostname]['DB_DATABASE'] }}"
+        - replace:
+            path: /tmp/init.sql
+            regexp: "DB_USER"
+            replace: "{{ hostvars[inventory_hostname]['DB_USER'] }}"
+        - replace:
+            path: /tmp/init.sql
+            regexp: "DB_REPL_USER"
+            replace: "{{ hostvars[inventory_hostname]['DB_REPL_USER'] }}"
+        - replace:
+            path: /tmp/init.sql
+            regexp: "DB_REPL_PASSWORD"
+            replace: "{{ hostvars[inventory_hostname]['DB_REPL_PASSWORD'] }}"
+        - command: /usr/bin/psql -a -f /tmp/init.sql
+          become: true
+          become_user: postgres
+
+- name: db_repl_host configuration
+  hosts: db_repl_host
+  become: true
+  tasks:
+    - name: PostgreSQL configuration and setup
+      block:
+        - blockinfile:
+            path: "/etc/postgresql/{{ hostvars[inventory_hostname]['PG_VERSION'] }}/main/postgresql.conf"
+            block: |
+              listen_addresses = '*'
+              port = {{ hostvars[inventory_hostname]['DB_REPL_PORT'] }}
+        - service:
+            name: postgresql
+            state: restarted
+        - command: rm -rf /var/lib/postgresql/{{ hostvars[inventory_hostname]['PG_VERSION'] }}/main/
+          become: true
+          become_user: postgres
+        - command: pg_basebackup -h {{ hostvars[inventory_hostname]['DB_HOST'] }} -D /var/lib/postgresql/{{ hostvars[inventory_hostname]['PG_VERSION'] }}/main/ -p {{ hostvars[inventory_hostname]['DB_PORT'] }} -U {{ hostvars[inventory_hostname]['DB_REPL_USER'] }} -S replication_slot
+          environment:
+            PGUSER: "{{ hostvars[inventory_hostname]['DB_REPL_USER'] }}"
+            PGPASSWORD: "{{ hostvars[inventory_hostname]['DB_REPL_PASSWORD'] }}"
+          become: true
+          become_user: postgres
+        - file:
+            path: /var/lib/postgresql/
+            state: directory
+            recurse: true
+            owner: postgres
+            group: postgres
+
+- name: Bot execution
+  hosts: db_bot_host
+  become: true
+  tasks:
+    - name: Bot Execution
+      command: python3 "/ansible/bot/bot/bot.py"
+      environment:
+        TOKEN: "{{ hostvars[inventory_hostname]['TOKEN'] }}"
+
+        HOST: "{{ hostvars[inventory_hostname]['RM_HOST'] }}"
+        PORT: "{{ hostvars[inventory_hostname]['RM_PORT'] }}"
+        USER: "{{ hostvars[inventory_hostname]['RM_USER'] }}"
+        PASSWORD: "{{ hostvars[inventory_hostname]['RM_PASSWORD'] }}"
+
+        DBUSER: "{{ hostvars[inventory_hostname]['DB_USER'] }}"
+        DBPASSWORD: "{{ hostvars[inventory_hostname]['DB_PASSWORD'] }}"
+        DBHOST: "{{ hostvars[inventory_hostname]['DB_HOST'] }}"
+        DBPORT: "{{ hostvars[inventory_hostname]['DB_PORT'] }}"
+        DBNAME: "{{ hostvars[inventory_hostname]['DB_DATABASE'] }}"
