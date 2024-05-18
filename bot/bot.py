@@ -292,7 +292,7 @@ def get_repl_logs(update: Update, context):
             if "No such file" in str(result):
                 ssh = paramiko.SSHClient()
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                ssh.connect(hostname=DBHOST, username=DBNAME, password=DBPASSWORD, port=DBPORT)
+                ssh.connect(hostname=hostdb, username=usernamedb, password=passworddb, port=portdb)
 
                 stdin, stdout, stderr = ssh.exec_command("cat /var/log/postgresql/* | grep repl | tail -n 25")
                 info = stdout.read().decode()
