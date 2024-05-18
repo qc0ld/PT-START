@@ -284,22 +284,11 @@ def get_services(update: Update, context):
 
 def get_repl_logs(update: Update, context):
     try:
-        command = "cat /var/log/postgresql/postgresql.log | grep repl | tail -n 25"
-        result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run("cat /var/log/postgresql/postgresql.log | grep repl | tail -n 25", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode != 0:
             update.message.reply_text("Error while openning log file")
         else:
-            if "No such file" in str(result):
-                ssh = paramiko.SSHClient()
-                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                ssh.connect(hostname=hostdb, username=usernamedb, password=passworddb, port=portdb)
-
-                stdin, stdout, stderr = ssh.exec_command("cat /var/log/postgresql/* | grep repl | tail -n 25")
-                info = stdout.read().decode()
-                ssh.close()
-                update.message.reply_text(info)
-            else:
-                update.message.reply_text(result.stdout.decode().strip('\n'))
+            update.message.reply_text(result.stdout.decode().strip('\n'))
     except Exception as e:
         update.message.reply_text("Error: " + str(e))
     return ConversationHandler.END
