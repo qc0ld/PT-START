@@ -27,6 +27,11 @@
             version: docker
         - pip:
             requirements: "/ansible/bot/bot/requirements.txt"
+            
+    - name: Install pip
+      apt:
+        name: python3-pip
+        state: present
 
     - name: Log directory setup
       block:
@@ -64,6 +69,11 @@
 
     - name: init.sql setup
       block:
+        - postgresql_db:
+            name: "{{ hostvars[inventory_hostname]['DB_DATABASE'] }}"
+            state: present
+          become: true
+          become_user: postgres
         - copy:
             src: init.sql
             dest: /tmp/init.sql
