@@ -289,7 +289,10 @@ def get_repl_logs(update: Update, context):
         if result.returncode != 0:
             update.message.reply_text("Error while openning log file")
         else:
-            update.message.reply_text(result.stdout.decode().strip('\n'))
+            if "No such file" in str(result):
+                update.message.reply_text(ssh_connect("cat /var/log/postgresql/* | grep repl | tail -n 25"))
+            else:
+                update.message.reply_text(result.stdout.decode().strip('\n'))
     except Exception as e:
         update.message.reply_text("Error: " + str(e))
     return ConversationHandler.END
