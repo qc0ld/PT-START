@@ -290,7 +290,14 @@ def get_repl_logs(update: Update, context):
             update.message.reply_text("Error while openning log file")
         else:
             if "No such file" in str(result):
-                update.message.reply_text(ssh_connect("cat /var/log/postgresql/* | grep repl | tail -n 25"))
+                ssh = paramiko.SSHClient()
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(hostname=DBHOST, username=DBNAME, password=DBPASSWORD, port=DBPORT)
+
+                stdin, stdout, stderr = ssh.exec_command("cat /var/log/postgresql/* | grep repl | tail -n 25")
+                info = stdout.read().decode()
+                ssh.close()
+                update.message.reply_text(info)
             else:
                 update.message.reply_text(result.stdout.decode().strip('\n'))
     except Exception as e:
