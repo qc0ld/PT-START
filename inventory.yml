@@ -1,0 +1,30 @@
+all:
+  hosts:
+    db_bot_host:
+      ansible_user: "ansible"
+      ansible_ssh_pass: "ansible"
+      ansible_host:
+    db_repl_host:
+      ansible_user: "ansible"
+      ansible_ssh_pass: "ansible"
+      ansible_host:
+  vars:
+    TOKEN:
+
+    RM_HOST:
+    RM_PORT: 22
+    RM_USER: "ansible"
+    RM_PASSWORD: "ansible"
+
+    DB_USER: "postgres"
+    DB_PASSWORD:
+    DB_HOST:
+    DB_PORT: 5432
+    DB_DATABASE:
+
+    DB_REPL_USER: "repl_user"
+    DB_REPL_PASSWORD:
+    DB_REPL_HOST:
+    DB_REPL_PORT: 5432
+
+    PG_VERSION: 16
